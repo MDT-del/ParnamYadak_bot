@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+bot_config.env
+.git
+.gitignore 
