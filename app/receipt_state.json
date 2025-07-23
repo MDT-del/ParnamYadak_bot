@@ -1,12 +1,3 @@
 {
-  "5355900643": {
-    "order_id": 1,
-    "state": "await_receipt",
-    "waiting_for_receipt": true
-  },
-  "81116809": {
-    "order_id": 1,
-    "state": "await_receipt",
-    "waiting_for_receipt": true
-  }
+  
 }

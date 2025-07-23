@@ -576,10 +576,11 @@ class PollingSystem:
         """اطلاع‌رسانی رد سفارش"""
         try:
             message = f"❌ متاسفانه سفارش شما رد شد.\n\nبرای اطلاعات بیشتر با پشتیبانی تماس بگیرید."
-            
             await self.bot.send_message(user_id, message)
             logger.info(f"📢 اطلاع‌رسانی رد سفارش {order_id} به کاربر {user_id} ارسال شد")
-            
+            # پاکسازی وضعیت رسید
+            from app.state_manager import clear_receipt_state
+            clear_receipt_state(user_id)
         except Exception as e:
             logger.error(f"❌ خطا در ارسال اطلاع‌رسانی رد سفارش {order_id}: {e}")
     
@@ -587,13 +588,13 @@ class PollingSystem:
         """اطلاع‌رسانی تایید پرداخت به کاربر"""
         try:
             message = f"✅ پرداخت سفارش شماره {order_id} تایید شد!\n\n🎉 سفارش شما نهایی شد و به آدرس شما ارسال خواهد شد.\n\n📦 می‌توانید سفارش جدیدی ثبت کنید."
-            
             await self.bot.send_message(user_id, message)
             logger.info(f"📢 اطلاع‌رسانی تایید پرداخت سفارش {order_id} به کاربر {user_id} ارسال شد")
-            
             # متوقف کردن polling برای این سفارش
             self.pause_order_polling(order_id)
-            
+            # پاکسازی وضعیت رسید
+            from app.state_manager import clear_receipt_state
+            clear_receipt_state(user_id)
         except Exception as e:
             logger.error(f"❌ خطا در ارسال اطلاع‌رسانی تایید پرداخت سفارش {order_id}: {e}")
     
