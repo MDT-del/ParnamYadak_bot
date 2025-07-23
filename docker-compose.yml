@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  bot:
+    build: .
+    container_name: parnamyadak-bot
+    env_file:
+      - bot_config.env
+    restart: unless-stopped
+    # اگر نیاز به پورت خاصی دارید (مثلاً برای webhook)
+    # ports:
+    #   - "8080:8080" 
