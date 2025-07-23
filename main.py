@@ -90,8 +90,8 @@ async def setup_bot_and_dispatcher():
     logger = setup_logging()
     logger.info("🤖 سیستم لاگ ربات راه‌اندازی شد")
     
-    # تنظیم ربات با timeout بیشتر
-    bot = Bot(token=BotConfig.BOT_TOKEN, timeout=30)
+    # تنظیم ربات بدون پارامتر timeout (سازگار با aiogram v3)
+    bot = Bot(token=BotConfig.BOT_TOKEN)
     dp = Dispatcher()
     
     # ثبت handlers
