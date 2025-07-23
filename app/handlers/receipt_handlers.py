@@ -13,7 +13,7 @@ from aiogram import types
 from aiogram.types import Message
 import tempfile
 import json
-from bot.app.state_manager import get_receipt_state, set_receipt_state, clear_receipt_state
+from app.state_manager import get_receipt_state, set_receipt_state, clear_receipt_state
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
