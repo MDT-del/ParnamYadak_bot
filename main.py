@@ -112,10 +112,27 @@ async def mechanic_status_notify(request):
 
     if telegram_id and status:
         if status == "approved":
-            msg = "✅ مدارک شما تایید شد و می‌توانید سفارش ثبت کنید."
+            # دریافت درصد کمیسیون از پنل
+            import os
+            import aiohttp
+            PANEL_API_BASE_URL = os.getenv("PANEL_API_BASE_URL")
+            commission_percent = "N/A"
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(f"{PANEL_API_BASE_URL}/mechanics/api/status?telegram_id={telegram_id}") as resp:
+                        if resp.status == 200:
+                            data = await resp.json()
+                            if data.get('success') and data.get('data'):
+                                commission_percent = data['data'].get('commission_percent', 'N/A')
+            except Exception as e:
+                commission_percent = "N/A"
+            msg = f"✅ مدارک شما تایید شد و می‌توانید سفارش ثبت کنید.\n\n💰 درصد کمیسیون شما: {commission_percent}%"
+            from dynamic_menu import get_main_menu
+            menu = get_main_menu(telegram_id)
+            await bot.send_message(telegram_id, msg, reply_markup=menu)
         else:
             msg = "❌ متاسفانه مدارک شما تایید نشد. لطفاً با پشتیبانی تماس بگیرید."
-        await bot.send_message(telegram_id, msg)
+            await bot.send_message(telegram_id, msg)
         return web.json_response({"success": True})
     return web.json_response({"success": False, "error": "Invalid data"}, status=400)
 
