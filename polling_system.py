@@ -13,6 +13,8 @@ import json
 from datetime import datetime, timedelta
 from aiogram import Bot
 from app.state_manager import get_user_status, set_user_status
+import sys
+from config import BotConfig
 
 # تنظیم لاگر
 logger = logging.getLogger(__name__)
@@ -37,6 +39,8 @@ class PollingSystem:
         self.connection_check_interval = 60  # افزایش فاصله بررسی اتصال (ثانیه)
         logger = logging.getLogger(__name__)
         logger.info(f"🔧 PollingSystem initialized with panel URL: {self.panel_api_base_url}")
+        if not BotConfig.USE_WEBHOOK:
+            self.polling_interval = 60  # هر 1 دقیقه یکبار فقط در حالت پولینگ
     
     def load_notified_orders(self):
         """بارگذاری سفارشات اطلاع‌رسانی شده از فایل"""
@@ -64,6 +68,9 @@ class PollingSystem:
     
     async def start_polling(self):
         """شروع polling system"""
+        if BotConfig.USE_WEBHOOK:
+            logger.info("[POLLING] USE_WEBHOOK فعال است، polling سفارشات غیرفعال شد.")
+            return
         logger.info("🚀 شروع سیستم polling...")
         self.is_running = True
         panel_accessible = False
@@ -332,6 +339,9 @@ class PollingSystem:
     # --- متدهای مربوط به سفارشات ---
     
     async def check_pending_orders(self):
+        if BotConfig.USE_WEBHOOK:
+            logger.info("[POLLING] USE_WEBHOOK فعال است، بررسی سفارشات غیرفعال شد.")
+            return
         """بررسی وضعیت سفارشات در انتظار"""
         try:
             # پاک کردن سفارش‌های تکمیل شده از حافظه
@@ -420,6 +430,9 @@ class PollingSystem:
             return []
     
     async def check_order_status(self, order_id: int, user_id: int):
+        if BotConfig.USE_WEBHOOK:
+            logger.info(f"[POLLING] USE_WEBHOOK فعال است، بررسی وضعیت سفارش {order_id} غیرفعال شد.")
+            return
         """بررسی وضعیت سفارش"""
         for attempt in range(self.connection_retries):
             try:

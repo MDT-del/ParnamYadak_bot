@@ -153,6 +153,8 @@ async def order_status_notify(request):
             msg = f"✅ سفارش #{order_id} شما تایید شد!"
         elif status == "لغو شده":
             msg = f"❌ سفارش #{order_id} شما لغو شد."
+        elif status == "پرداخت شده":
+            msg = f"✅ پرداخت سفارش شما تایید شد و به آدرس شما به زودی ارسال می‌شود."
         else:
             msg = f"وضعیت سفارش #{order_id}: {status}"
         await bot.send_message(telegram_id, msg)

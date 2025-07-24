@@ -52,7 +52,7 @@ async def mechanic_menu_handler(message: types.Message):
                     
                     # شروع فرآیند ثبت سفارش
                     mechanic_order_userinfo[user_id] = {"step": "product_name", "current_item": {}, "items": []}
-                    await message.answer("لطفاً نام محصول اول و کفییت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
+                    await message.answer("لطفاً نام محصول اول و کیفیت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
                     logging.info(f"[BOT] Mechanic {user_id} started multi-item order process.")
                     return
                 else:
@@ -160,7 +160,7 @@ async def mechanic_order_text_handler(message: types.Message):
         # اگر در مرحله نامشخصی هستیم، دوباره شروع کنیم
         order_data['step'] = 'product_name'
         order_data['current_item'] = {}
-        await message.answer("لطفاً نام محصول اول و کفییت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
+        await message.answer("لطفاً نام محصول اول و کیفیت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
 
 async def mechanic_order_photo_handler(message: types.Message):
     """هندلر عکس‌های سفارش"""
@@ -284,7 +284,7 @@ async def order_callback_handler(callback_query: types.CallbackQuery):
         order_data['step'] = 'product_name'
         
         if callback_query.message:
-            await callback_query.message.answer("لطفاً نام محصول اول و کفییت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
+            await callback_query.message.answer("لطفاً نام محصول اول و کیفیت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
             
     elif data.startswith("finish_order_"):
         # پایان سفارش و نمایش خلاصه
@@ -426,7 +426,9 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
                         response_data = await resp.json()
                         if response_data.get('success'):
                             order_id = response_data.get('order_id')
-                            await send_order_notification(order_id)
+                            # دریافت نام سفارش‌دهنده از user_data
+                            customer_name = user_data.get('full_name') or user_data.get('name') or "بدون نام"
+                            await send_order_notification(order_id, customer_name)
                             from app.handlers.receipt_handlers import set_receipt_waiting_state
                             set_receipt_waiting_state(user_id, order_id)
                             asyncio.create_task(check_order_status_periodically(order_id, user_id, callback_query.bot))
@@ -621,12 +623,13 @@ async def get_product_prices(product_names: list):
         return {'success': False, 'message': 'خطا در دریافت قیمت‌ها'}
 
 
-async def send_order_notification(order_id: int):
+async def send_order_notification(order_id: int, customer_name: str = ""):
     """ارسال اعلان سفارش جدید به پنل"""
     try:
         PANEL_API_BASE_URL = os.getenv("PANEL_API_BASE_URL")
         notification_data = {
-            'order_id': order_id
+            'order_id': order_id,
+            'customer_name': customer_name
         }
         
         async with aiohttp.ClientSession() as session:
@@ -895,7 +898,7 @@ async def customer_menu_handler(message: types.Message):
     
     if hasattr(message, 'text') and message.text == "📝 ثبت سفارش":
         customer_order_userinfo[user_id] = {"step": "product_name", "current_item": {}, "items": []}
-        await message.answer("لطفاً نام محصول اول و کفییت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
+        await message.answer("لطفاً نام محصول اول و کیفیت (ایرانی ، شرکتی ، وارداتی )آن را وارد کنید:📝")
         logging.info(f"[BOT] Customer {user_id} started multi-item order process.")
         
     elif hasattr(message, 'text') and message.text == "📦 سفارشات من":
