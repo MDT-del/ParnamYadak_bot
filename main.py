@@ -104,6 +104,41 @@ async def setup_bot_and_dispatcher():
     
     return bot, dp, logger
 
+async def mechanic_status_notify(request):
+    data = await request.json()
+    telegram_id = data.get("telegram_id")
+    status = data.get("status")  # approved یا rejected
+    bot = request.app["bot"]
+
+    if telegram_id and status:
+        if status == "approved":
+            msg = "✅ مدارک شما تایید شد و می‌توانید سفارش ثبت کنید."
+        else:
+            msg = "❌ متاسفانه مدارک شما تایید نشد. لطفاً با پشتیبانی تماس بگیرید."
+        await bot.send_message(telegram_id, msg)
+        return web.json_response({"success": True})
+    return web.json_response({"success": False, "error": "Invalid data"}, status=400)
+
+async def order_status_notify(request):
+    data = await request.json()
+    telegram_id = data.get("telegram_id")
+    status = data.get("status")
+    order_id = data.get("order_id")
+    bot = request.app["bot"]
+
+    if telegram_id and status and order_id:
+        if status == "در انتظار پرداخت":
+            msg = f"💳 سفارش #{order_id} شما در انتظار پرداخت است."
+        elif status == "تایید شده":
+            msg = f"✅ سفارش #{order_id} شما تایید شد!"
+        elif status == "لغو شده":
+            msg = f"❌ سفارش #{order_id} شما لغو شد."
+        else:
+            msg = f"وضعیت سفارش #{order_id}: {status}"
+        await bot.send_message(telegram_id, msg)
+        return web.json_response({"success": True})
+    return web.json_response({"success": False, "error": "Invalid data"}, status=400)
+
 async def start_polling(bot: Bot, dp: Dispatcher, logger):
     """شروع polling ربات"""
     logger.info("🚀 شروع polling ربات...")
@@ -165,6 +200,11 @@ async def start_webhook(bot: Bot, dp: Dispatcher):
             return web.Response(text="Bot is running!")
         
         app.router.add_get('/health', health_check)
+        
+        # اضافه کردن endpoint اطلاع‌رسانی وضعیت مکانیک
+        app.router.add_post('/api/mechanic_status_notify', mechanic_status_notify)
+        app.router.add_post('/api/order_status_notify', order_status_notify)
+        app["bot"] = bot
         
         # شروع سرور
         runner = web.AppRunner(app)

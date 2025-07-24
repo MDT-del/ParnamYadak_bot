@@ -393,7 +393,10 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
         # آماده‌سازی فرم دیتا
         from aiohttp import FormData
         form = FormData()
-        form.add_field('mechanic_id' if is_mechanic else 'customer_id', str(user_id))
+        if is_mechanic:
+            form.add_field('mechanic_id', str(user_id))
+        else:
+            form.add_field('customer_id', str(user_id))
         form.add_field('items', json.dumps(formatted_items), content_type='application/json')
         for key, file in files.items():
             form.add_field(key, file, filename=f'{key}.jpg', content_type='image/jpeg')
@@ -433,6 +436,19 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
                                 )
                             del order_userinfo[user_id]
                             logging.info(f"[BOT] Order {order_id} submitted successfully by {'mechanic' if is_mechanic else 'customer'} {user_id}")
+                            # ارسال اعلان به پنل پس از ثبت سفارش موفق
+                            try:
+                                import aiohttp
+                                PANEL_API_URL = "https://panel.parnamyadak.ir/api/notify_order_created"
+                                notify_data = {
+                                    "order_id": order_id,
+                                    "telegram_id": user_id,
+                                    "role": 'mechanic' if is_mechanic else 'customer'
+                                }
+                                async with aiohttp.ClientSession() as session:
+                                    await session.post(PANEL_API_URL, json=notify_data)
+                            except Exception as e:
+                                logging.error(f"[BOT] Error notifying panel about order creation: {e}")
                         else:
                             error_msg = response_data.get('message', 'خطای نامشخص')
                             if callback_query.message:
