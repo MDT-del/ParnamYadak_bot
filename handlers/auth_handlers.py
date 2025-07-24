@@ -375,32 +375,9 @@ async def customer_register_submit(message, user_id, data):
                 if resp.status == 200:
                     resp_data = await resp.json()
                     if resp_data.get('success'):
-                        customer_id = resp_data.get('id')
-                        
-                        # ارسال نوتیفیکیشن به پنل
-                        try:
-                            notification_data = {
-                                'customer_id': customer_id,
-                                'telegram_id': user_id,
-                                'first_name': data.get('first_name', ''),
-                                'last_name': data.get('last_name', ''),
-                                'phone_number': data.get('phone_number', '')
-                            }
-                            notification_response = requests.post(
-                                f"{PANEL_API_BASE_URL}/notifications/api/customer-registered",
-                                json=notification_data,
-                                timeout=10
-                            )
-                            if notification_response.status_code == 200:
-                                logger.info(f"📢 نوتیفیکیشن ثبت‌نام مشتری {user_id} (ID: {customer_id}) به پنل ارسال شد")
-                            else:
-                                logger.error(f"❌ خطا در ارسال نوتیفیکیشن به پنل: {notification_response.status_code}")
-                                # پیام موفقیت ثبت‌نام را همچنان نمایش بده
-                        except Exception as e:
-                            logger.error(f"❌ خطا در ارسال نوتیفیکیشن به پنل: {e}")
-                        
-                        await message.answer("ثبت‌نام با موفقیت انجام شد!")
-                        await message.answer("اکنون می‌توانید از امکانات ربات استفاده کنید.", reply_markup=await get_dynamic_menu(user_id))
+                        # پیام تبریک و منو داینامیک
+                        await message.answer("🎉 ثبت‌نام شما با موفقیت انجام شد! به خانواده پارنام یدک خوش آمدید.")
+                        await message.answer("از منوی زیر یکی از گزینه‌ها را انتخاب کنید:", reply_markup=await get_dynamic_menu(user_id))
                     else:
                         await message.answer(f"خطا در ثبت‌نام: {resp_data.get('message', '')}")
                 else:

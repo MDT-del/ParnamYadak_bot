@@ -14,40 +14,38 @@ except ImportError:
         return None
 
 def get_main_menu(user_id: int) -> ReplyKeyboardMarkup:
-    """دریافت منوی اصلی بر اساس وضعیت کاربر"""
-    
+    """
+    دریافت منوی اصلی بر اساس وضعیت کاربر
+    """
     # بررسی وضعیت کاربر
     user_status = get_user_status(user_id)
-    
     if not user_status:
         # کاربر ثبت‌نام نکرده
         return get_guest_menu()
-    
     if user_status.get('status') == 'pending':
         # کاربر در انتظار تایید
         return get_pending_menu()
-    
     if user_status.get('status') == 'approved':
-        # کاربر تایید شده
+        # فقط مکانیک تایید شده به امکانات دسترسی دارد
         user_type = user_status.get('role')  # mechanic یا customer
         if user_type == 'mechanic':
             return get_mechanic_menu()
-        elif user_type == 'customer':
-            return get_customer_menu()
-    
+        else:
+            # مشتری تایید شده فقط پیام وضعیت بگیرد
+            return get_guest_menu()
     if user_status.get('status') == 'rejected':
         # کاربر رد شده
         return get_rejected_menu()
-    
     # پیش‌فرض
     return get_guest_menu()
 
 def get_guest_menu() -> ReplyKeyboardMarkup:
-    """منوی کاربران ثبت‌نام نکرده"""
+    """
+    منوی کاربران ثبت‌نام نکرده
+    """
     keyboard = [
-        [KeyboardButton(text="👨‍🔧 ثبت‌نام مکانیک")],
-        [KeyboardButton(text="👤 ثبت‌نام مشتری")]
-        # حذف دکمه پشتیبانی از منوی مهمان
+        [KeyboardButton(text="👨‍🔧 ثبت‌نام مکانیک"), KeyboardButton(text="👤 ثبت‌نام مشتری")],
+        [KeyboardButton(text="📞 پشتیبانی")]
     ]
     return ReplyKeyboardMarkup(
         keyboard=keyboard,
