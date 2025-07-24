@@ -438,7 +438,6 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
                             logging.info(f"[BOT] Order {order_id} submitted successfully by {'mechanic' if is_mechanic else 'customer'} {user_id}")
                             # ارسال اعلان به پنل پس از ثبت سفارش موفق
                             try:
-                                import aiohttp
                                 PANEL_API_URL = "https://panel.parnamyadak.ir/api/notify_order_created"
                                 notify_data = {
                                     "order_id": order_id,

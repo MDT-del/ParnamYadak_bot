@@ -122,13 +122,16 @@ async def mechanic_status_notify(request):
                     async with session.get(f"{PANEL_API_BASE_URL}/mechanics/api/status?telegram_id={telegram_id}") as resp:
                         if resp.status == 200:
                             data = await resp.json()
-                            if data.get('success') and data.get('data'):
-                                commission_percent = data['data'].get('commission_percent', 'N/A')
+                            if data.get('success') and data:
+                                commission_percent = data.get('commission_percentage', 'N/A')
             except Exception as e:
                 commission_percent = "N/A"
+            # آپدیت وضعیت کاربر به mechanic/approved
+            from app.state_manager import set_user_status
+            set_user_status(int(telegram_id), "mechanic", "approved")
             msg = f"✅ مدارک شما تایید شد و می‌توانید سفارش ثبت کنید.\n\n💰 درصد کمیسیون شما: {commission_percent}%"
-            from dynamic_menu import get_main_menu
-            menu = get_main_menu(telegram_id)
+            from app.state_manager import get_dynamic_menu
+            menu = await get_dynamic_menu(int(telegram_id))
             await bot.send_message(telegram_id, msg, reply_markup=menu)
         else:
             msg = "❌ متاسفانه مدارک شما تایید نشد. لطفاً با پشتیبانی تماس بگیرید."
