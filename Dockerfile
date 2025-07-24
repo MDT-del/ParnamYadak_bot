@@ -14,4 +14,6 @@ ENV LANG C.UTF-8
 # بارگذاری env در زمان اجرا
 ENV PYTHONUNBUFFERED=1
 
+EXPOSE 8443
+
 CMD ["python", "main.py"] 
