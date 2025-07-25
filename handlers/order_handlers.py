@@ -348,7 +348,7 @@ async def show_order_summary(message: types.Message, user_id: int):
     await message.answer(summary, reply_markup=keyboard)
 
 async def final_order_callback_handler(callback_query: types.CallbackQuery):
-    """هندلر تایید نهایی سفارش"""
+    """هندلر تایید نهایی سفارش - ارسال سفارش به پنل با مدل جدید Person و BotOrder"""
     if not callback_query.data:
         return
     user_id = callback_query.from_user.id
@@ -393,32 +393,25 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
         # آماده‌سازی فرم دیتا
         from aiohttp import FormData
         form = FormData()
+        # اطلاعات مشتری
+        customer_name = order_data.get('customer_name', '')
+        customer_phone = order_data.get('customer_phone', '')
+        customer_address = order_data.get('customer_address', '')
+        telegram_id = str(user_id)
+        form.add_field('customer_name', customer_name)
+        form.add_field('customer_phone', customer_phone)
+        form.add_field('customer_address', customer_address)
+        form.add_field('telegram_id', telegram_id)
         if is_mechanic:
-            form.add_field('mechanic_id', str(user_id))
-        else:
-            form.add_field('customer_id', str(user_id))
+            form.add_field('mechanic_id', telegram_id)
         form.add_field('items', json.dumps(formatted_items), content_type='application/json')
         for key, file in files.items():
             form.add_field(key, file, filename=f'{key}.jpg', content_type='image/jpeg')
         try:
-            # بررسی تایید کاربر
-            check_url = f"{PANEL_API_BASE_URL}/mechanics/api/user/status?telegram_id={user_id}" if is_mechanic else f"{PANEL_API_BASE_URL}/customers/api/user/status?telegram_id={user_id}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(check_url) as check_resp:
-                    if check_resp.status == 200:
-                        user_data = await check_resp.json()
-                        if not user_data.get('success') or user_data.get('status') != 'approved':
-                            if callback_query.message:
-                                await callback_query.message.answer("❌ شما مجاز به ثبت سفارش نیستید. لطفاً منتظر تایید ادمین باشید.")
-                            return
-                    else:
-                        if callback_query.message:
-                            await callback_query.message.answer("❌ خطا در بررسی وضعیت کاربر.")
-                        return
             # ارسال سفارش به پنل با فایل‌ها
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    f"{PANEL_API_BASE_URL}/bot-orders/api/create_order",
+                    f"{PANEL_API_BASE_URL}/api/create_order",
                     data=form,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as resp:
@@ -426,8 +419,6 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
                         response_data = await resp.json()
                         if response_data.get('success'):
                             order_id = response_data.get('order_id')
-                            # دریافت نام سفارش‌دهنده از user_data
-                            customer_name = user_data.get('full_name') or user_data.get('name') or "بدون نام"
                             await send_order_notification(order_id, customer_name)
                             from app.handlers.receipt_handlers import set_receipt_waiting_state
                             set_receipt_waiting_state(user_id, order_id)
@@ -438,18 +429,6 @@ async def final_order_callback_handler(callback_query: types.CallbackQuery):
                                 )
                             del order_userinfo[user_id]
                             logging.info(f"[BOT] Order {order_id} submitted successfully by {'mechanic' if is_mechanic else 'customer'} {user_id}")
-                            # ارسال اعلان به پنل پس از ثبت سفارش موفق
-                            try:
-                                PANEL_API_URL = "https://panel.parnamyadak.ir/api/notify_order_created"
-                                notify_data = {
-                                    "order_id": order_id,
-                                    "telegram_id": user_id,
-                                    "role": 'mechanic' if is_mechanic else 'customer'
-                                }
-                                async with aiohttp.ClientSession() as session:
-                                    await session.post(PANEL_API_URL, json=notify_data)
-                            except Exception as e:
-                                logging.error(f"[BOT] Error notifying panel about order creation: {e}")
                         else:
                             error_msg = response_data.get('message', 'خطای نامشخص')
                             if callback_query.message:
