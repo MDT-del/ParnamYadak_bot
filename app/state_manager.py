@@ -101,14 +101,14 @@ def get_pending_users():
     return pending_users
 
 def get_pending_orders():
-    """دریافت لیست سفارشات در انتظار بررسی"""
+    """دریافت لیست سفارشات در انتظار بررسی (فقط سفارشات غیر پرداخت شده)"""
     pending_orders = []
     
     # بررسی سفارشات مکانیک
     for user_id, order_data in mechanic_order_userinfo.items():
         status = order_data.get('status')
         # فقط سفارش‌هایی که هنوز در انتظار هستند (نه پرداخت شده)
-        if status and status != 'completed' and status != 'پرداخت شده' and status != 'payment_confirmed':
+        if status and status not in ['completed', 'پرداخت شده', 'payment_confirmed']:
             order_id = order_data.get('order_id')
             if order_id:
                 pending_orders.append((order_id, user_id))
@@ -117,7 +117,7 @@ def get_pending_orders():
     for user_id, order_data in customer_order_userinfo.items():
         status = order_data.get('status')
         # فقط سفارش‌هایی که هنوز در انتظار هستند (نه پرداخت شده)
-        if status and status != 'completed' and status != 'پرداخت شده' and status != 'payment_confirmed':
+        if status and status not in ['completed', 'پرداخت شده', 'payment_confirmed']:
             order_id = order_data.get('order_id')
             if order_id:
                 pending_orders.append((order_id, user_id))
@@ -219,7 +219,7 @@ async def get_dynamic_menu(user_id: int):
         # کاربر ثبت‌نام نکرده
         return ReplyKeyboardMarkup(
             keyboard=[
-                [KeyboardButton(text="🧑‍💼 ثبت‌نام مشتری"), KeyboardButton(text="🔧 ثبت‌نام مکانیک")]
+                [KeyboardButton(text="🧑‍💼 ثبت‌نام مشتری"), KeyboardButton(text="🔧 ��بت‌نام مکانیک")]
             ],
             resize_keyboard=True
         )
@@ -269,3 +269,65 @@ def clear_receipt_state(user_id):
         del data[str(user_id)]
         with open(RECEIPT_STATE_FILE, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+# --- مدیریت سفارشات پرداخت شده ---
+NOTIFIED_ORDERS_FILE = os.path.join(os.path.dirname(__file__), 'notified_orders.json')
+
+def is_order_payment_notified(order_id):
+    """بررسی اینکه آیا سفارش قبلاً پرداخت شده اطلاع‌رسانی شده"""
+    if not os.path.exists(NOTIFIED_ORDERS_FILE):
+        return False
+    
+    try:
+        with open(NOTIFIED_ORDERS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return str(order_id) in data.get('notified_orders', [])
+    except Exception as e:
+        import logging
+        logging.error(f"Error checking notified orders: {e}")
+        return False
+
+def mark_order_payment_notified(order_id):
+    """علامت‌گذاری سفارش به عنوان پرداخت شده اطلاع‌رسانی شده"""
+    data = {'notified_orders': []}
+    
+    if os.path.exists(NOTIFIED_ORDERS_FILE):
+        try:
+            with open(NOTIFIED_ORDERS_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception:
+            data = {'notified_orders': []}
+    
+    if 'notified_orders' not in data:
+        data['notified_orders'] = []
+    
+    if str(order_id) not in data['notified_orders']:
+        data['notified_orders'].append(str(order_id))
+        
+        # نگه داشتن فقط 1000 سفارش اخیر برای جلوگیری از بزرگ شدن فایل
+        if len(data['notified_orders']) > 1000:
+            data['notified_orders'] = data['notified_orders'][-1000:]
+        
+        try:
+            with open(NOTIFIED_ORDERS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            
+            import logging
+            logging.info(f"✅ سفارش {order_id} به عنوان پرداخت شده اطلاع‌رسانی شده علامت‌گذاری شد")
+        except Exception as e:
+            import logging
+            logging.error(f"Error marking order as notified: {e}")
+
+def get_notified_orders():
+    """دریافت لیست سفارشات اطلاع‌رسانی شده"""
+    if not os.path.exists(NOTIFIED_ORDERS_FILE):
+        return []
+    
+    try:
+        with open(NOTIFIED_ORDERS_FILE, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return data.get('notified_orders', [])
+    except Exception as e:
+        import logging
+        logging.error(f"Error getting notified orders: {e}")
+        return []

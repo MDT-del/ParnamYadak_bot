@@ -22,7 +22,6 @@ from handlers.order_handlers import register_order_handlers
 from handlers.support_handlers import register_support_handlers
 from app.handlers.receipt_handlers import register_receipt_handlers
 from dynamic_menu import get_main_menu
-from polling_system import PollingSystem
 
 def check_internet_connection():
     """بررسی اتصال اینترنت"""
@@ -105,6 +104,7 @@ async def setup_bot_and_dispatcher():
     return bot, dp, logger
 
 async def mechanic_status_notify(request):
+    """اطلاع‌رسانی تغییر وضعیت مکانیک از پنل"""
     data = await request.json()
     telegram_id = data.get("telegram_id")
     status = data.get("status")  # approved یا rejected
@@ -140,25 +140,52 @@ async def mechanic_status_notify(request):
     return web.json_response({"success": False, "error": "Invalid data"}, status=400)
 
 async def order_status_notify(request):
+    """اطلاع‌رسانی تغییر وضعیت سفارش از پنل"""
     data = await request.json()
     telegram_id = data.get("telegram_id")
     status = data.get("status")
     order_id = data.get("order_id")
     bot = request.app["bot"]
+    
+    # لاگ اطلاعات دریافتی
+    logging.info(f"📨 Webhook order notification: order_id={order_id}, telegram_id={telegram_id}, status={status}")
 
     if telegram_id and status and order_id:
-        if status == "در انتظار پرداخت":
+        # بررسی ای��که آیا این سفارش قبلاً پرداخت شده اطلاع‌رسانی شده
+        from app.state_manager import is_order_payment_notified, mark_order_payment_notified
+        
+        if status == "پرداخت شده":
+            if is_order_payment_notified(order_id):
+                logging.info(f"⚠️ سفارش {order_id} قبلاً پرداخت شده اطلاع‌رسانی شده - پیام ارسال نمی‌شود")
+                return web.json_response({"success": True, "message": "Already notified"})
+            
+            # علامت‌گذاری به عنوان اطلاع‌رسانی شده
+            mark_order_payment_notified(order_id)
+            
+            msg = f"✅ پرداخت سفارش شماره {order_id} تایید شد!\n\n🎉 سفارش شما نهایی شد و به آدرس شما ارسال خواهد شد.\n\n📦 می‌توانید سفارش جدیدی ثبت کنید."
+            
+            # پاکسازی وضعیت رسید
+            from app.state_manager import clear_receipt_state
+            clear_receipt_state(int(telegram_id))
+            
+            logging.info(f"✅ ارسال پیام پرداخت تایید شده برای سفارش {order_id} به کارب�� {telegram_id}")
+            
+        elif status == "در انتظار پرداخت":
             msg = f"💳 سفارش #{order_id} شما در انتظار پرداخت است."
         elif status == "تایید شده":
             msg = f"✅ سفارش #{order_id} شما تایید شد!"
         elif status == "لغو شده":
             msg = f"❌ سفارش #{order_id} شما لغو شد."
-        elif status == "پرداخت شده":
-            msg = f"✅ پرداخت سفارش شما تایید شد و به آدرس شما به زودی ارسال می‌شود."
+            # پاکسازی وضعیت رسید در صورت لغو
+            from app.state_manager import clear_receipt_state
+            clear_receipt_state(int(telegram_id))
         else:
-            msg = f"وضعیت سفارش #{order_id}: {status}"
+            msg = f"📋 وضعیت سفارش #{order_id}: {status}"
+        
         await bot.send_message(telegram_id, msg)
+        logging.info(f"📤 پیام وضعیت سفارش {order_id} به کاربر {telegram_id} ارسال شد")
         return web.json_response({"success": True})
+    
     return web.json_response({"success": False, "error": "Invalid data"}, status=400)
 
 async def start_polling(bot: Bot, dp: Dispatcher, logger):
@@ -193,7 +220,7 @@ async def start_polling(bot: Bot, dp: Dispatcher, logger):
 
 async def start_webhook(bot: Bot, dp: Dispatcher):
     """شروع webhook mode"""
-    logging.info("[BOT] Starting in webhook mode...")
+    logging.info("🌐 شروع ربات در حالت webhook...")
     
     try:
         # حذف webhook قبلی (در صورت وجود)
@@ -202,7 +229,7 @@ async def start_webhook(bot: Bot, dp: Dispatcher):
         # تنظیم webhook جدید
         webhook_url = f"{BotConfig.WEBHOOK_URL}{BotConfig.WEBHOOK_PATH}"
         await bot.set_webhook(webhook_url)
-        logging.info(f"[BOT] Webhook set to: {webhook_url}")
+        logging.info(f"🔗 Webhook تنظیم شد: {webhook_url}")
         
         # ایجاد اپلیکیشن aiohttp
         app = web.Application()
@@ -219,7 +246,7 @@ async def start_webhook(bot: Bot, dp: Dispatcher):
         
         # اضافه کردن route برای health check
         async def health_check(request):
-            return web.Response(text="Bot is running!")
+            return web.Response(text="Bot is running in webhook mode!")
         
         app.router.add_get('/health', health_check)
         
@@ -239,19 +266,19 @@ async def start_webhook(bot: Bot, dp: Dispatcher):
         )
         await site.start()
         
-        logging.info(f"[BOT] Webhook server started on {BotConfig.WEBHOOK_HOST}:{BotConfig.WEBHOOK_PORT}")
+        logging.info(f"🚀 سرور webhook روی {BotConfig.WEBHOOK_HOST}:{BotConfig.WEBHOOK_PORT} شروع شد")
         
         # نگه داشتن سرور
         try:
             await asyncio.Future()  # run forever
         except KeyboardInterrupt:
-            logging.info("[BOT] Received interrupt signal")
+            logging.info("⏹️ سیگنال توقف دریافت شد")
         finally:
             await runner.cleanup()
             await bot.delete_webhook()
             
     except Exception as e:
-        logging.error(f"[BOT] Error in webhook mode: {e}")
+        logging.error(f"❌ خطا در حالت webhook: {e}")
         raise
 
 async def main():
@@ -271,22 +298,25 @@ async def main():
         # تنظیم ربات و dispatcher
         bot, dp, logger = await setup_bot_and_dispatcher()
         
-        # شروع سیستم polling برای بررسی وضعیت کاربران و سفارشات
-        from polling_system import PollingSystem
-        polling_system = PollingSystem(bot)
-        
-        # تنظیم مرجع سراسری برای استفاده در receipt handlers
-        from app.handlers.receipt_handlers import set_global_polling_system
-        set_global_polling_system(polling_system)
-        
-        logger.info("🤖 ربات با موفقیت استارت شد!")
-        print("🤖 ربات با موفقیت استارت شد!")  # اضافه کردن print برای اطمینان
-        
-        from config import BotConfig
+        # بررسی حالت کار ربات
         if BotConfig.USE_WEBHOOK:
-            # فقط وبهوک اجرا شود
+            logger.info("🌐 ربات در حالت WEBHOOK اجرا می‌شود")
+            logger.info("⚠️ سیستم polling غیرفعال است")
+            # فقط وبهوک اجرا شود - بدون polling
             await start_webhook(bot, dp)
         else:
+            logger.info("🔄 ربات در حالت POLLING اجرا می‌شود")
+            # شروع سیستم polling برای بررسی وضعیت کاربران و سفارشات
+            from polling_system import PollingSystem
+            polling_system = PollingSystem(bot)
+            
+            # تنظیم مرجع سراسری برای استفاده در receipt handlers
+            from app.handlers.receipt_handlers import set_global_polling_system
+            set_global_polling_system(polling_system)
+            
+            logger.info("🤖 ربات با موفقیت استارت شد!")
+            print("🤖 ربات با موفقیت استارت شد!")
+            
             # فقط پولینگ و سیستم پولینگ کاربران اجرا شود
             await asyncio.gather(
                 start_polling(bot, dp, logger),
@@ -301,7 +331,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logging.info("[BOT] Bot stopped by user")
+        logging.info("⏹️ ربات توسط کاربر متوقف شد")
     except Exception as e:
-        logging.error(f"[BOT] Unexpected error: {e}")
+        logging.error(f"❌ خطای غیرمنتظره: {e}")
         sys.exit(1)
